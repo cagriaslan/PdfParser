@@ -5,7 +5,9 @@ from nltk import bigrams
 from nltk import trigrams
 import re
 import os
-import sys, getopt
+import sys
+import getopt
+import operator
 
 
 class PdfParser:
@@ -14,6 +16,7 @@ class PdfParser:
         self.keywords = self.keyword_handler()
         self.folder_name = folder_name
         self.total_count_dict = {str(key): 0 for key in self.keywords}
+        self.unables = []
 
     def keyword_handler(self):
         keywords = []
@@ -23,35 +26,45 @@ class PdfParser:
         return keywords
 
     def mainer(self):
-        for each in os.listdir(self.folder_name):
-            """ for each file in the folder """
-            count_dict = {str(key): 0 for key in self.keywords}
-            text_of_the_pdf = textract.process(os.path.join(self.folder_name, each), encoding="UTF-8")
-            punc_cleaned = re.sub('[%s]' % re.escape(string.punctuation), '', text_of_the_pdf.decode("UTF-8"))
-            tokenized = nltk.word_tokenize(punc_cleaned.lower().replace("\n", ""))
-            text_bigrams = bigrams(tokenized)
-            bigram = [each for each in text_bigrams]
-            text_trigrams = trigrams(tokenized)
-            trigram = [each for each in text_trigrams]
-            for key in self.keywords:
-                if len(key) == 1:
-                    for tokens in tokenized:
-                        if key[0] in tokens:
-                            self.total_count_dict[str(key)] += 1
-                            count_dict[str(key)] += 1
-                elif len(key) == 2:
-                    for tokens in bigram:
-                        if key[0] in tokens and key[1] in tokens:
-                            self.total_count_dict[str(key)] += 1
-                            count_dict[str(key)] += 1
-                elif len(key) == 3:
-                    for tokens in trigram:
-                        if key[0] in tokens and key[1] in tokens and key[2] in tokens:
-                            self.total_count_dict[str(key)] += 1
-                            count_dict[str(key)] += 1
-            print("----- File name: " + each + " -----")
-            print(count_dict)
-        print("*** Total Count Values ***\n" + str(self.total_count_dict))
+        with open("output", "w", encoding="UTF-8") as fp:
+            for each in os.listdir(self.folder_name):
+                """ for each file in the folder """
+                count_dict = {str(key): 0 for key in self.keywords}
+                text_of_the_pdf = ""
+                try:
+                    text_of_the_pdf = textract.process(os.path.join(self.folder_name, each))
+                    text_of_the_pdf = text_of_the_pdf.decode("utf-8", errors="ignore")
+                except:
+                    self.unables.append(each)
+                    continue
+                punc_cleaned = re.sub('[%s]' % re.escape(string.punctuation), '', text_of_the_pdf)
+                tokenized = nltk.word_tokenize(punc_cleaned.lower().replace("\n", ""))
+                text_bigrams = bigrams(tokenized)
+                bigram = [each for each in text_bigrams]
+                text_trigrams = trigrams(tokenized)
+                trigram = [each for each in text_trigrams]
+                for key in self.keywords:
+                    if len(key) == 1:
+                        for tokens in tokenized:
+                            if key[0] in tokens:
+                                self.total_count_dict[str(key)] += 1
+                                count_dict[str(key)] += 1
+                    elif len(key) == 2:
+                        for tokens in bigram:
+                            if key[0] in tokens and key[1] in tokens:
+                                self.total_count_dict[str(key)] += 1
+                                count_dict[str(key)] += 1
+                    elif len(key) == 3:
+                        for tokens in trigram:
+                            if key[0] in tokens and key[1] in tokens and key[2] in tokens:
+                                self.total_count_dict[str(key)] += 1
+                                count_dict[str(key)] += 1
+                fp.write("----- File name: " + each + " -----\n")
+                sorted_x = sorted(count_dict.items(), key=operator.itemgetter(1))
+                fp.write(str(sorted_x) + "\n")
+            sorted_y = sorted(self.total_count_dict.items(), key=operator.itemgetter(1))
+            fp.write("*** Total Count Values ***\n" + str(sorted_y))
+            fp.write("\n" + str(len(self.unables)))
 
 
 def main(argv):
